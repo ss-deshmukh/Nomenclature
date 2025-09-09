@@ -1,6 +1,12 @@
 import React, { useState } from 'react'
 import { web3FromSource } from '@polkadot/extension-dapp'
 
+// Simple in-memory storage for demo (in real app this would be blockchain state)
+let demoStorage = {
+  'alice.web3': '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+  'bob.web3': '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+}
+
 function WnsContract({ api, contract, account, contractAddress }) {
   const [activeTab, setActiveTab] = useState('register')
   const [loading, setLoading] = useState(false)
@@ -34,8 +40,17 @@ function WnsContract({ api, contract, account, contractAddress }) {
     try {
       // For demo purposes, we'll simulate the contract interaction
       if (!contract) {
-        // Mock success for demo
-        showResult(`Successfully registered ${registerName}.web3 → ${registerAddress}`, 'success')
+        // Check if name already exists
+        const fullName = registerName.endsWith('.web3') ? registerName : `${registerName}.web3`
+        if (demoStorage[fullName]) {
+          showResult(`Name ${fullName} is already taken!`, 'error')
+          setLoading(false)
+          return
+        }
+        
+        // Store in demo storage
+        demoStorage[fullName] = registerAddress
+        showResult(`Successfully registered ${fullName} → ${registerAddress}`, 'success')
         setRegisterName('')
         setRegisterAddress('')
         setLoading(false)
@@ -79,17 +94,15 @@ function WnsContract({ api, contract, account, contractAddress }) {
     setLoading(true)
     try {
       if (!contract) {
-        // Mock response for demo
-        const mockAddresses = {
-          'alice.web3': '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-          'bob.web3': '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-        }
+        // Normalize name (add .web3 if missing)
+        const fullName = resolveName.endsWith('.web3') ? resolveName : `${resolveName}.web3`
         
-        const address = mockAddresses[resolveName]
+        // Look up in demo storage
+        const address = demoStorage[fullName]
         if (address) {
-          showResult(`${resolveName} resolves to: ${address}`, 'success')
+          showResult(`${fullName} resolves to: ${address}`, 'success')
         } else {
-          showResult(`Name ${resolveName} not found`, 'error')
+          showResult(`Name ${fullName} not found`, 'error')
         }
         setLoading(false)
         return
@@ -124,8 +137,19 @@ function WnsContract({ api, contract, account, contractAddress }) {
     setLoading(true)
     try {
       if (!contract) {
-        // Mock success for demo
-        showResult(`Successfully updated ${updateName}.web3 to ${updateAddress}`, 'success')
+        // Normalize name
+        const fullName = updateName.endsWith('.web3') ? updateName : `${updateName}.web3`
+        
+        // Check if name exists
+        if (!demoStorage[fullName]) {
+          showResult(`Name ${fullName} not found. Register it first!`, 'error')
+          setLoading(false)
+          return
+        }
+        
+        // Update in demo storage
+        demoStorage[fullName] = updateAddress
+        showResult(`Successfully updated ${fullName} to ${updateAddress}`, 'success')
         setUpdateName('')
         setUpdateAddress('')
         setLoading(false)
@@ -184,6 +208,12 @@ function WnsContract({ api, contract, account, contractAddress }) {
           onClick={() => setActiveTab('update')}
         >
           Update Address
+        </div>
+        <div 
+          className={`tab ${activeTab === 'list' ? 'active' : ''}`}
+          onClick={() => setActiveTab('list')}
+        >
+          All Names
         </div>
       </div>
 
@@ -275,6 +305,38 @@ function WnsContract({ api, contract, account, contractAddress }) {
               {loading ? 'Updating...' : 'Update Address'}
             </button>
           </form>
+        </div>
+      )}
+
+      {activeTab === 'list' && (
+        <div className="section">
+          <h3>All Registered Names</h3>
+          <div style={{ background: 'rgba(255, 255, 255, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+            {Object.keys(demoStorage).length === 0 ? (
+              <p style={{ opacity: 0.7, margin: 0 }}>No names registered yet</p>
+            ) : (
+              <div>
+                {Object.entries(demoStorage).map(([name, address]) => (
+                  <div key={name} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '0.5rem 0',
+                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    fontFamily: 'monospace'
+                  }}>
+                    <strong>{name}</strong>
+                    <span style={{ opacity: 0.8 }}>
+                      {address.slice(0, 8)}...{address.slice(-8)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>
+            Try registering a new name and it will appear here!
+          </p>
         </div>
       )}
 
